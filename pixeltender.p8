@@ -14,6 +14,7 @@ shelf.lasttime = time()
 shelf.refilltime = 0
 shelf.refilltimemin = 1
 shelf.refilltimemax = 4
+shelf.maxbottles = 20
 shelf.bottlecolors = {8,10,12}
 shelf.bottles = {}
 
@@ -21,7 +22,7 @@ tender = {}
 tender.x = bar.x + 1
 tender.y = bar.y + 2
 tender.col = 14
-tender.collision = {4,8,10,12}
+tender.collision = {2,4,6,8,9,10,11,12}
 tender.holding = 4
 tender.speed = 1
 
@@ -32,17 +33,37 @@ drinkprop.ykill = bar.y + 32
 
 custprop = {}
 custprop.minx = bar.x + 2
-custprop.miny = bar.y + 7
+custprop.miny = bar.y + 20
 custprop.maxx = bar.x + 28
 custprop.maxy = bar.y + 28
 custprop.lasttime = time()
 custprop.refilltime = 0
 custprop.refilltimemin = 1
 custprop.refilltimemax = 4
-custprop.start = 20
+custprop.maxcust = 20
+custprop.movetime = 0
+custprop.collision = {4}
+custprop.tip = 5
+
+target = {}
+target.col = 5
+
+seatprop = {}
+seatprop.current = 0
+seatprop.startx = bar.x + 1
+seatprop.y = bar.y + 4
+seatprop.maxseat = 30
 
 currentdrinks = {}
 currentcustomers ={}
+currentseats = {}
+
+state = {}
+state.score = {}
+state.score.current = 0
+state.score.col = 7
+state.score.x = bar.x
+state.score.y = bar.y - 15
 
 scrn = {}
 
@@ -70,10 +91,13 @@ end
 
 function draw_game()
 cls()
+draw_ui()
+draw_targeting()
 draw_bar()
 draw_tender()
 draw_drinks()
 draw_customers()
+draw_seats()
 end
 
 function update_tender()
@@ -108,7 +132,7 @@ shelf.lasttime = time()
 shelfstarted = true
 end
 --replenish shelf
-if(time() - shelf.lasttime) > shelf.refilltime then
+if((time() - shelf.lasttime) > shelf.refilltime and count(shelf.bottles) < shelf.maxbottles) then
 add_to_shelf()
 shelf.refilltime = flr(rnd(shelf.refilltimemax)) + shelf.refilltimemin
 shelf.lasttime=time()
@@ -130,12 +154,21 @@ end
 for customer in all(currentcustomers) do
 if(drink.x == customer.x and drink.y == customer.y) then
 if(drink.col == customer.col) then
+add_score(customer)
+if(customer.sit == true) then
+seatprop.current -= 1
+end
 del(currentdrinks,drink)
 del(currentcustomers,customer)
 end
 end
 end
 end
+end
+
+function add_score(customer)
+state.score.current += custprop.tip - (customer.tiploss * (customer.starty - customer.y))
+state.score.current = flr(state.score.current * 100) / 100
 end
 
 function check_drink()
@@ -214,26 +247,70 @@ end
 custstarted = false
 
 function update_customers()
---if(custstarted != true) then
---for i=1,custprop.start do
---add_customer()
---end
---custprop.refilltime = flr(rnd(custprop.refilltimemax)) + custprop.refilltimemin
---custprop.lasttime = time()
---custstarted = true
---end
-if(time() - custprop.lasttime) > custprop.refilltime then
+if((time() - custprop.lasttime) > custprop.refilltime and count(currentcustomers) < custprop.maxcust) then
 add_customer()
 custprop.refilltime = flr(rnd(custprop.refilltimemax)) + custprop.refilltimemin
 custprop.lasttime=time()
 end
+for customer in all(currentcustomers) do
+if(customer.sit != true) then
+if(time() - customer.lasttime > customer.movetime) then
+local x=0
+local y=0
+x = customer.dire
+for i=1, count(custprop.collision) do
+local col=pget(customer.x+x, customer.y+y)
+if(col==custprop.collision[i]) then
+x=0
+y=-1
+customer.dire = -customer.dire
+break
 end
+customer.lasttime=time()
+end
+customer.x += x
+customer.y += y
+if(customer.y == seatprop.y)then
+add_to_seat(customer)
+end
+end
+end
+end
+end
+
+function add_to_seat(customer)
+local seatx = seatprop.startx
+for i=seatprop.startx,bar.x+31 do
+local empty = true
+for col in all(drinkprop.colors) do
+if(pget(i, seatprop.y) == col) then
+seatx = i+1
+empty = false
+break
+end
+end
+if(empty==true)then
+break
+end
+end
+customer.x = seatx
+customer.y = seatprop.y
+customer.sit = true
+seatprop.current += 1
+end
+--customer def
+--x,y,col,dire,lasttime,currenttime,starty,tiploss
 
 function add_customer()
 local xpos = flr(rnd(custprop.maxx - custprop.minx)) + custprop.minx
 local ypos = flr(rnd(custprop.maxy - custprop.miny)) + custprop.miny
 local rcol = flr(rnd(count(drinkprop.colors)))+ 1
-add(currentcustomers, {x=xpos, y=ypos, col=drinkprop.colors[rcol]})
+local rdire = flr(rnd(2))
+local loss = custprop.tip/(ypos-4)
+if(rdire == 0) then
+rdire = -1
+end
+add(currentcustomers, {x=xpos, y=ypos, col=drinkprop.colors[rcol], dire = rdire, lasttime=time(), movetime=custprop.movetime, starty = ypos, tiploss=loss, sit=false})
 end
 
 function draw_customers()
@@ -263,13 +340,27 @@ for drink in all(currentdrinks) do
 pset(drink.x, drink.y, drink.col)
 end
 end
+
+function draw_targeting()
+line(tender.x, tender.y, tender.x, tender.y+29, target.col)
+end
+
+function draw_ui()
+print("$"..state.score.current,state.score.x,state.score.y,state.score.col)
+end
+
+function draw_seats()
+for seat in all(currentseats) do
+pset(seat.x, seat.y, seat.col)
+end
+end
 __gfx__
 47777777777777777777777777777774000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 44444444444444444444444444444444000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 40000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 44444444444444444444444444444444000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 45555555555555555555555555555554000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-45555555555555555555555555555554000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+40000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 40000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 40000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 40000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
