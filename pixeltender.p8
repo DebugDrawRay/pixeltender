@@ -40,7 +40,7 @@ custprop.lasttime = time()
 custprop.refilltime = 0
 custprop.refilltimemin = 1
 custprop.refilltimemax = 4
-custprop.maxcust = 20
+custprop.maxcust = 35
 custprop.movetime = 0
 custprop.collision = {4}
 custprop.tip = 5
@@ -52,11 +52,10 @@ seatprop = {}
 seatprop.current = 0
 seatprop.startx = bar.x + 1
 seatprop.y = bar.y + 4
-seatprop.maxseat = 30
+seatprop.maxseat = 29
 
 currentdrinks = {}
 currentcustomers ={}
-currentseats = {}
 
 state = {}
 state.score = {}
@@ -69,12 +68,20 @@ scrn = {}
 
 function _init()
 cls()
-start_game()
+show_title()
 end
 
 function _update()
 scrn.upd()
+end
+
+function _draw()
 scrn.drw()
+end
+
+function show_title()
+scrn.upd = update_title
+scrn.drw = draw_title
 end
 
 function start_game()
@@ -82,11 +89,34 @@ scrn.upd = update_game
 scrn.drw = draw_game
 end
 
+function end_game()
+scrn.upd = update_endgame
+scrn.drw = draw_endgame
+end
+
+function update_title()
+update_title_input()
+end
+
+function draw_title()
+draw_title_screen()
+draw_title_tutorial()
+end
+
+function update_title_input()
+if(btnp(4)) then
+start_game()
+end
+end
+
 function update_game()
 update_tender()
 update_shelf()
 update_drinks()
 update_customers()
+if(seatprop.current > seatprop.maxseat)then
+end_game()
+end
 end
 
 function draw_game()
@@ -98,6 +128,14 @@ draw_tender()
 draw_drinks()
 draw_customers()
 draw_seats()
+end
+
+function update_endgame()
+end
+
+function draw_endgame()
+cls()
+draw_gameover()
 end
 
 function update_tender()
@@ -353,6 +391,16 @@ function draw_seats()
 for seat in all(currentseats) do
 pset(seat.x, seat.y, seat.col)
 end
+end
+
+function draw_gameover()
+print("game over u loser :c",bar.x,bar.y-25,7)
+end
+
+function draw_title_screen()
+end
+
+function draw_title_tutorial()
 end
 __gfx__
 47777777777777777777777777777774000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
