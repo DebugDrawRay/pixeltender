@@ -2,8 +2,8 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 bar = {}
-bar.x = 48
-bar.y = 48
+bar.x = 16
+bar.y = 16
 
 state = {}
 state.score = {}
@@ -90,6 +90,7 @@ shelfstarted=false
 function _init()
 cls()
 show_title()
+poke(0x5f2c, 3)
 end
 
 function _update()
